@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {summarize,filterRows,csv} from '../lab/metrics.js';
+const report=JSON.parse(fs.readFileSync(new URL('../lab/report.json',import.meta.url),'utf8'));const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-10,`${a} != ${b}`);
+test('browser metrics match independent scikit-learn report',()=>{const m=summarize(report.predictions);close(m.accuracy,report.metrics.accuracy);close(m.auc,report.metrics.rocAuc);close(m.brier,report.metrics.brier);assert.deepEqual([[m.tn,m.fp],[m.fn,m.tp]],report.metrics.confusion);});
+test('threshold zero predicts positive for every observation',()=>{const m=summarize(report.predictions,0);assert.equal(m.tn,0);assert.equal(m.fn,0);assert.equal(m.tp+m.fp,m.n);});
+test('threshold one handles no positive predictions',()=>{const m=summarize(report.predictions,1);assert.equal(m.tp,0);assert.equal(m.fp,0);assert.equal(m.precision,null);});
+test('AUC awards half credit to ties',()=>close(summarize([{actual:1,probability:.5},{actual:0,probability:.5}]).auc,.5));
+test('single-class and empty slices expose undefined metrics',()=>{assert.equal(summarize([]).accuracy,null);assert.equal(summarize([{actual:1,probability:.8}]).auc,null);});
+test('filters apply both requested cohort dimensions',()=>{const rows=filterRows(report.predictions,{sex:'female',pclass:'1'});assert.ok(rows.length>0);assert.ok(rows.every(p=>p.sex==='female'&&p.class===1));});
+test('exported threshold decisions match the displayed confusion',()=>{const data=csv(report.predictions,.7).split('\n');assert.equal(data.length,180);const positives=data.slice(1).filter(l=>l.split(',')[4]==='1').length;const m=summarize(report.predictions,.7);assert.equal(positives,m.tp+m.fp);});
+test('malformed probabilities and thresholds are rejected',()=>{assert.throws(()=>summarize([{actual:1,probability:NaN}]));assert.throws(()=>summarize([],2));});

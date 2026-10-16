@@ -1,2 +1,7 @@
 /TrafficCrashes/archive*
 /Image MNIST/test.csv
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.ipynb_checkpoints/
